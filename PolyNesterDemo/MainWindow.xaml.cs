@@ -16,7 +16,7 @@ namespace PolyNesterDemo
         private static string STOP = "Stop";
 
         private int[] _handles;
-        private Nester _nester;
+        private PolyNester.Nester _nester;
 
         public MainWindow()
         {
@@ -65,7 +65,7 @@ namespace PolyNesterDemo
             Rect64 container = new Rect64(0, canvas_main.Height, canvas_main.Width, 0);
 
             // create a new nester object and populate its data
-            _nester = new Nester();
+            _nester = new PolyNester.Nester();
             _handles = _nester.AddUVPolygons(pts, tris, 0.0);
             
             // set the nesting commands
@@ -76,14 +76,14 @@ namespace PolyNesterDemo
 
             _nester.CMD_OptimalRotation(null);
 
-            _nester.CMD_Nest(null, NFPQUALITY.Full);
+            _nester.OddCmdNest(null, NestQuality.Full);
 
-            _nester.CMD_Refit(container, false, null);
+            _nester.OddCmdRefit(container, false, null);
 
             // change the button text and execute work
             button_play.Content = STOP;
 
-            _nester.ExecuteCommandBuffer(NesterProgress, NesterComplete);
+            _nester.ExecuteCmdBuffer(NesterProgress, NesterComplete);
         }
 
         void NesterProgress(ProgressChangedEventArgs e)
@@ -101,7 +101,7 @@ namespace PolyNesterDemo
                 return;
             }
 
-            for (int i = 0; i < _nester.LibSize; i++)
+            for (int i = 0; i < _nester.PolySpace; i++)
                 canvas_main.AddNgon(_nester.GetTransformedPoly(i), WPFHelper.RandomColor());
         }
     }
