@@ -74,7 +74,7 @@ namespace PolyNesterDemo
 
             canvas_main.Children.Clear();
 
-            _nester.CMD_OptimalRotation(null);
+            _nester.OddOptimalRotation(null);
 
             _nester.OddCmdNest(null, NestQuality.Full);
 

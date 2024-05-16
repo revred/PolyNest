@@ -1,15 +1,16 @@
-﻿using System;
+﻿using ClipperLib;
+using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Linq;
 using System.Threading.Tasks;
-using ClipperLib;
 
 namespace PolyNester
 {
 
     using Ngon = List<IntPoint>;
     using Ngons = List<List<IntPoint>>;
+    using Handles = IEnumerable<int>;
 
     public enum NestQuality { Simple, Convex, ConcaveLight, ConcaveMedium, ConcaveHigh, ConcaveFull, Full }
 
@@ -46,15 +47,57 @@ namespace PolyNester
             }
         }
 
-        private class PolyCmd
+        private class Poly3Cmd
         {
-            public Action<object[]> Call;
-            public object[] param;
+            public Action<object> Call;
+            public object One;
+        }
+
+        private struct PolyScale
+        {
+            public int handle_;
+            public double scaleX;
+            public double scaleY;
+            public static PolyScale MakeOne(int h, double x, double y)
+                => new PolyScale() { handle_ = h, scaleX = x, scaleY = y };
+        }
+        private struct RotateCCW
+        {
+            public int handle_;
+            public double theta_;
+
+            public static RotateCCW MakeOne(int h, double t)
+                => new RotateCCW() { handle_ = h, theta_ = t };
+        }
+        private struct PolyMove
+        {
+            public int handle_;
+            public double moveX;
+            public double moveY;
+
+            public static PolyMove MakeOne(int h, double x, double y)
+                => new PolyMove() { handle_ = h, moveX = x, moveY = y };
+        }
+
+        private struct PolyRefit
+        {
+            public Rect64 target_;
+            public Handles harray_;
+            public bool stretch_;
+            public static PolyRefit MakeOne(Rect64 r, Handles ar, bool s)
+                => new PolyRefit() { target_ = r, harray_ = ar, stretch_ = s };
+        }
+        private struct NestParam
+        {
+            public Handles handles_;
+            public NestQuality max_;
+            public static NestParam MakeOne(Handles ar, NestQuality nq)
+                => new NestParam() { handles_ = ar, max_ = nq };
         }
 
         const long unit_scale = 10000000;
         List<PolyForm> libPolys_;   // list of saved polygons for reference by handle, stores raw poly positions and transforms
-        Queue<PolyCmd> cmdBuffr_;   // buffers list of commands which will append transforms to elements of poly_lib on execute
+        Queue<Poly3Cmd> cmdBuffr_; // buffers list of commands which will append transforms to elements of poly_lib on execute
         BackgroundWorker bkWorker_; // used to execute command buffer in background
 
         public int PolySpace => libPolys_.Count;
@@ -62,7 +105,7 @@ namespace PolyNester
         public Nester()
         {
             libPolys_ = new List<PolyForm>();
-            cmdBuffr_ = new Queue<PolyCmd>();
+            cmdBuffr_ = new Queue<Poly3Cmd>();
         }
 
         public void ExecuteCmdBuffer(Action<ProgressChangedEventArgs> callback_progress, Action<AsyncCompletedEventArgs> callback_completed)
@@ -105,8 +148,8 @@ namespace PolyNester
         {
             while (cmdBuffr_.Count > 0)
             {
-                PolyCmd cmd = cmdBuffr_.Dequeue();
-                cmd.Call(cmd.param);
+                Poly3Cmd cmd = cmdBuffr_.Dequeue();
+                cmd.Call(cmd.One);
 
                 if (bkWorker_.CancellationPending)
                 {
@@ -119,7 +162,7 @@ namespace PolyNester
         public void ClearCommandBuffer() => cmdBuffr_.Clear();
         public bool IsBusy() => bkWorker_?.IsBusy ?? false;
 
-        private HashSet<int> Preprocess(IEnumerable<int> handles)
+        private HashSet<int> Preprocess(Handles handles)
         {
             if (handles == null) handles = Enumerable.Range(0, libPolys_.Count);
             HashSet<int> unique = new HashSet<int>();
@@ -127,82 +170,94 @@ namespace PolyNester
             return unique;
         }
 
-        public void OddCmdScale(int handle, double scale_x, double scale_y)
+        public void OddCmdScale(int handle, double scale_x, double scale_y)        
         {
-            cmdBuffr_.Enqueue(new PolyCmd() { Call = CmdScale, param = new object[] { handle, scale_x, scale_y } });
+            cmdBuffr_.Enqueue(new Poly3Cmd() { 
+                Call = CmdScale, 
+                One = PolyScale.MakeOne(handle, scale_x, scale_y)});
         }
 
-        private void CmdScale(params object[] param)
+        private void CmdScale(object one)
         {
-            int handle = (int)param[0];
-            double scale_x = (double)param[1];
-            double scale_y = (double)param[2];
-            libPolys_[handle].tform = Mat3x3.Scale(scale_x, scale_y) * libPolys_[handle].tform;
+            PolyScale ps = (PolyScale)one;
+            libPolys_[ps.handle_].tform = 
+                Mat3x3.Scale(ps.scaleX, ps.scaleY) * 
+                libPolys_[ps.handle_].tform;
         }
-
+        
         public void OddCmdRotate(int handle, double theta)
-        {
-            cmdBuffr_.Enqueue(new PolyCmd() { Call = CmdRotate, param = new object[] { handle, theta } });
+        {            
+            cmdBuffr_.Enqueue(new Poly3Cmd() { 
+                Call = CmdRotate, 
+                One = RotateCCW.MakeOne(handle, theta) });
         }
-
-        private void CmdRotate(params object[] param)
+        private void CmdRotate(object one)
         {
-            int handle = (int)param[0];
-            double theta = (double)param[1];
-            libPolys_[handle].tform = Mat3x3.RotateCounterClockwise(theta) * libPolys_[handle].tform;
+            RotateCCW rccw = (RotateCCW)one;
+            libPolys_[rccw.handle_].tform = 
+                Mat3x3.RotateCounterClockwise(rccw.theta_) * 
+                libPolys_[rccw.handle_].tform;
         }
 
         public void OddCmdTranslate(int handle, double translate_x, double translate_y)
         {
-            cmdBuffr_.Enqueue(new PolyCmd() { Call = CmdTranslate, param = new object[] { handle, translate_x, translate_y } });
+            cmdBuffr_.Enqueue(new Poly3Cmd() { 
+                Call = CmdTranslate, 
+                One = PolyMove.MakeOne(handle, translate_x, translate_y) });
         }
 
-        private void CmdTranslate(params object[] param)
+
+
+        private void CmdTranslate(object one)
         {
-            int handle = (int)param[0];
-            double translate_x = (double)param[1];
-            double translate_y = (double)param[2];
-            libPolys_[handle].tform = Mat3x3.Translate(translate_x, translate_y) * libPolys_[handle].tform;
+            PolyMove pm = (PolyMove)one;
+            libPolys_[pm.handle_].tform = 
+                Mat3x3.Translate(pm.moveX, pm.moveY) * 
+                libPolys_[pm.handle_].tform;
         }
 
-        public void OddCmdTranslateOriginToZero(IEnumerable<int> handles)
+        public void OddCmdTranslateOriginToZero(Handles handles)
         {
-            cmdBuffr_.Enqueue(new PolyCmd() { Call = cmd_translate_origin_to_zero, param = new object[] { handles } });
+            cmdBuffr_.Enqueue(new Poly3Cmd() { 
+                Call = CmdMoveOriginToZero, 
+                One = handles });
         }
 
-        private void cmd_translate_origin_to_zero(params object[] param)
+        private void CmdMoveOriginToZero(object one)
         {
-            HashSet<int> unique = Preprocess(param[0] as IEnumerable<int>);
+            if(!(one is Handles ph))return;
+            HashSet<int> unique = Preprocess(ph);
 
             foreach (int i in unique)
             {
                 IntPoint o = libPolys_[i].TransformPolyPoint(0, 0);
-                CmdTranslate(i, (double)-o.X, (double)-o.Y);
+                CmdTranslate(PolyMove.MakeOne(i, -o.X, -o.Y));
             }
         }
 
-        public void OddCmdRefit(Rect64 target, bool stretch, IEnumerable<int> handles)
+        public void OddCmdRefit(Rect64 target, bool stretch, Handles handles)
         {
-            cmdBuffr_.Enqueue(new PolyCmd() { Call = cmd_refit, param = new object[] { target, stretch, handles } });
+            cmdBuffr_.Enqueue(new Poly3Cmd() { 
+                Call = CmdRefit, 
+                One = PolyRefit.MakeOne(target, handles, stretch)});
         }
 
-        private void cmd_refit(params object[] param)
+        private void CmdRefit(object one)
         {
-            Rect64 target = (Rect64)param[0];
-            bool stretch = (bool)param[1];
-            HashSet<int> unique = Preprocess(param[2] as IEnumerable<int>);
-
+            PolyRefit ph = (PolyRefit)one;
+            
+            HashSet<int> unique = Preprocess(ph.harray_);
             HashSet<Vector64> points = new HashSet<Vector64>();
             foreach (int i in unique)
                 points.UnionWith(libPolys_[i].npoly[0].Select(p => libPolys_[i].tform * new Vector64(p.X, p.Y)));
 
             Vector64 scale, trans;
-            GeomUtility.GetRefitTransform(points, target, stretch, out scale, out trans);
+            GeomUtility.GetRefitTransform(points, ph.target_, ph.stretch_, out scale, out trans);
 
             foreach (int i in unique)
             {
-                CmdScale(i, scale.X, scale.Y);
-                CmdTranslate(i, trans.X, trans.Y);
+                CmdScale(PolyScale.MakeOne(i, scale.X, scale.Y));
+                CmdTranslate(PolyMove.MakeOne(i, trans.X, trans.Y));
             }
         }
 
@@ -250,33 +305,25 @@ namespace PolyNester
             return AddMinkowskiSum(subj_handle, pattern_handle, quality, true, lib_set_at);
         }
 
-        /// <summary>
-        /// Regular for loop in the syntax of a parallel for used for debugging
-        /// </summary>
-        /// <param name="i"></param>
-        /// <param name="j"></param>
-        /// <param name="body"></param>
-        private void For(int i, int j, Action<int> body)
-        {
-            for (int k = i; k < j; k++)
-                body(k);
-        }
 
-        public void OddCmdNest(IEnumerable<int> handles, NestQuality max_quality = NestQuality.Full)
+        public void OddCmdNest(Handles handles, NestQuality max_quality = NestQuality.Full)
         {
-            cmdBuffr_.Enqueue(new PolyCmd() { Call = CmdNest, param = new object[] { handles, max_quality } });
+            cmdBuffr_.Enqueue(new Poly3Cmd() { 
+                Call = CmdNest, 
+                One = NestParam.MakeOne(handles, max_quality) });
         }
 
         /// <summary>
         /// Nest the collection of handles with minimal enclosing square from origin
         /// </summary>
         /// <param name="handles"></param>
-        private void CmdNest(params object[] param)
+        private void CmdNest(object one)
         {
-            HashSet<int> unique = Preprocess(param[0] as IEnumerable<int>);
-            NestQuality max_quality = (NestQuality)param[1];
+            NestParam np = (NestParam)one;
+            HashSet<int> unique = Preprocess(np.handles_);
+            NestQuality max_quality = np.max_;
 
-            cmd_translate_origin_to_zero(unique);
+            CmdMoveOriginToZero(unique);
 
             int n = unique.Count;
 
@@ -360,9 +407,9 @@ namespace PolyNester
                 if (!placed[i])
                     continue;
 
-                CmdTranslate(ordered_handles[i], (double)(place.X - o.X), (double)(place.Y - o.Y));
+                CmdTranslate(PolyMove.MakeOne(ordered_handles[i], (place.X - o.X), (place.Y - o.Y)));
                 for (int k = i + 1; k < n; k++)
-                    CmdTranslate(nfps[k, i], (double)(place.X - o.X), (double)(place.Y - o.Y));
+                    CmdTranslate(PolyMove.MakeOne(nfps[k, i], (place.X - o.X), (place.Y - o.Y)));
 
                 if (i % place_chunk_sz == 0)
                 {
@@ -374,13 +421,14 @@ namespace PolyNester
             // remove temporary added values
             libPolys_.RemoveRange(start_cnt, libPolys_.Count - start_cnt);
         }
-
-        public void CMD_OptimalRotation(IEnumerable<int> handles)
-        {
-            cmdBuffr_.Enqueue(new PolyCmd() { Call = cmd_optimal_rotation, param = new object[] { handles } });
+        public void OddOptimalRotation(Handles handles)
+        {            
+            cmdBuffr_.Enqueue(new Poly3Cmd() { 
+                Call = CmdOptimalRotation, 
+                One = handles });
         }
 
-        private void cmd_optimal_rotation(int handle)
+        private void OptimalRotate(int handle)
         {
             Ngon hull = libPolys_[handle].TransformPoly()[0];
             int n = hull.Count;
@@ -414,17 +462,17 @@ namespace PolyNester
             double flip = flip_best ? Math.PI * 0.5 : 0;
             IntPoint around = hull[best];
 
-            CmdTranslate(handle, (double)-around.X, (double)-around.Y);
-            CmdRotate(handle, best_t + flip);
-            CmdTranslate(handle, (double)around.X, (double)around.Y);
+            CmdTranslate(PolyMove.MakeOne(handle, -around.X, -around.Y));
+            CmdRotate(RotateCCW.MakeOne(handle, best_t + flip));
+            CmdTranslate(PolyMove.MakeOne(handle, around.X, around.Y));
         }
 
-        private void cmd_optimal_rotation(params object[] param)
+        private void CmdOptimalRotation(object one)
         {
-            HashSet<int> unique = Preprocess(param[0] as IEnumerable<int>);
+            Handles hs = (Handles)one;
+            HashSet<int> unique = Preprocess(hs);
 
-            foreach (int i in unique)
-                cmd_optimal_rotation(i);
+            foreach (int i in unique) OptimalRotate(i);
         }
 
         /// <summary>
@@ -582,12 +630,6 @@ namespace PolyNester
             return libPolys_.Count - 1;
         }
 
-        public int AddCanvasFitPolygon(Rect64 canvas, int pattern_handle)
-        {
-            IntRect c = new IntRect((long)canvas.left, (long)canvas.top, (long)canvas.right, (long)canvas.bottom);
-            return AddCanvasFitPolygon(c, pattern_handle);
-        }
-
         public int[] AddCanvasFitPolygon(IEnumerable<int> handles)
         {
             HashSet<int> unique = Preprocess(handles);
@@ -621,16 +663,5 @@ namespace PolyNester
                 libPolys_[i].tform = Mat3x3.Eye();
         }
 
-        public void ApplyTransformLibUVSpace(Vector64[] points, int[] handles)
-        {
-            for (int i = 0; i < points.Length; i++)
-                points[i] = libPolys_[handles[i]].tform * (unit_scale * points[i]);
-        }
-
-        public void RevertTransformLibUVSpace(Vector64[] points, int[] handles)
-        {
-            for (int i = 0; i < points.Length; i++)
-                points[i] = (1.0 / unit_scale) * (libPolys_[handles[i]].tform.Inverse() * points[i]);
-        }
     }
 }
