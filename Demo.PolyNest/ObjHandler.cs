@@ -4,62 +4,27 @@ using System.Windows;
 
 namespace DemoPolyNest;
 
-
-public class UVObjInfo
-{
-    public Vector[] uvs;
-    public int[] tris;
-    public string target_file;
-
-    // do not modify
-    public string file_content;         // the original file contents
-    public HashSet<int> replace_lines;  // lines of the file which will be replaced on export
-
-    public UVObjInfo Clone()
-    {
-        UVObjInfo clone = new UVObjInfo();
-        clone.uvs = new Vector[uvs.Length];
-        clone.tris = new int[tris.Length];
-        clone.replace_lines = new HashSet<int>(replace_lines);
-
-
-        clone.file_content = file_content;
-        clone.target_file = target_file;
-
-        for (int i = 0; i < uvs.Length; i++)
-            clone.uvs[i] = uvs[i];
-
-        for (int i = 0; i < tris.Length; i++)
-            clone.tris[i] = tris[i];
-
-        return clone;
-    }
-}
-
 static class ObjHandler
 {
+
     public static UVObjInfo GetData(string path)
     {
-        UVObjInfo data = new UVObjInfo();
-        data.target_file = path;
-
-        List<int[]> face_list = new List<int[]>();
-        List<Vector> uv_list = new List<Vector>();
-        List<int> tri_list = new List<int>();
-        data.replace_lines = new HashSet<int>(); //point certain lines of the file to corresponding replacement uv indices
+        UVObjInfo obj = new UVObjInfo(path);
 
         char[] split_id = { ' ' };
         char[] face_split_id = { '/' };
 
-        data.file_content = File.ReadAllText(path);
         int line_counter = 0;
-        using (StringReader reader = new StringReader(data.file_content))
-        {
-            string current_text = reader.ReadLine();
+        List<int[]> face_list = new List<int[]>();
+        List<Vector> uv_list = new List<Vector>();
+        List<int> tri_list = new List<int>();
 
-            while (current_text != null)
+        using (StringReader reader = new StringReader(obj.Info.file_content))
+        {
+            var current_text = reader.ReadLine();
+            while (!string.IsNullOrEmpty(current_text))
             {
-                if (!current_text.StartsWith("vt ") && !current_text.StartsWith("f ") && !current_text.StartsWith("v ") && !current_text.StartsWith("vn "))
+                if (!CanHandleLine(current_text))
                 {
                     line_counter++;
                     current_text = reader.ReadLine();
@@ -72,7 +37,7 @@ static class ObjHandler
                 if (broken[0] == "vt")
                 {
                     uv_list.Add(new Vector(Convert.ToSingle(broken[1]), Convert.ToSingle(broken[2])));
-                    data.replace_lines.Add(line_counter);
+                    obj.Info.replace_lines.Add(line_counter);
                 }
                 else if (broken[0] == "f")
                 {
@@ -119,26 +84,33 @@ static class ObjHandler
             }
         }
 
-        data.uvs = uv_list.ToArray();
-        data.tris = tri_list.ToArray();
+        obj.Assign(uv_list, tri_list);
+
         
-        return data;
+        return obj;
     }
 
-    public static void SetData(UVObjInfo data)
+    static bool CanHandleLine(string currLine)
+    {
+        return currLine.StartsWith("vt ") || currLine.StartsWith("f ") ||
+               currLine.StartsWith("v ") || currLine.StartsWith("vn ");
+    }
+
+
+    public static void SetData(UVObjInfo obj)
     {
         int line_counter = 0;
         StringBuilder new_text = new StringBuilder();
 
         int used_uvs = 0;
 
-        using (StringReader reader = new StringReader(data.file_content))
+        using (StringReader reader = new StringReader(obj.Info.file_content))
         {
-            string current_text = reader.ReadLine();
+            var current_text = reader.ReadLine();
 
             while (current_text != null)
             {
-                if (!current_text.StartsWith("vt ") || !data.replace_lines.Contains(line_counter))
+                if (!current_text.StartsWith("vt ") || !obj.Info.replace_lines.Contains(line_counter))
                 {
                     line_counter++;
                     new_text.AppendLine(current_text);
@@ -146,7 +118,7 @@ static class ObjHandler
                     continue;
                 }
 
-                Vector uv = data.uvs[used_uvs++];
+                Vector uv = obj.Info.uvs[used_uvs++];
 
                 new_text.AppendLine(string.Format("vt {0} {1}", uv.X, uv.Y));
 
@@ -155,7 +127,7 @@ static class ObjHandler
             }
         }
 
-        File.WriteAllText(data.target_file, new_text.ToString());
+        File.WriteAllText(obj.Info.target_file, new_text.ToString());
     }
 
 }
