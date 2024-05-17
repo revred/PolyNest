@@ -16,6 +16,7 @@ public partial class MainWindow : Window
 
     private int[] handles_ = default!;
     private Nester nester_ = default!;
+    private IProgress<string> updates_ = new Progress<string>();
 
     public MainWindow()
     {
@@ -68,7 +69,7 @@ public partial class MainWindow : Window
         Rect64 container = new Rect64(0, canvas_main.Height, canvas_main.Width, 0);
 
         // create a new nester object and populate its data
-        nester_ = new PolyNester.Nester();
+        nester_ = new PolyNester.Nester(updates_);
         handles_ = nester_.AddUVPolygons(pts, tris, 0.0);
         
         // set the nesting commands

@@ -3,6 +3,7 @@ using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace PolyNester
@@ -102,28 +103,42 @@ namespace PolyNester
 
         public int PolySpace => libPolys_.Count;
 
-        public Nester()
+        public Nester(IProgress<string> updates)
         {
+            updates_ = updates;
+            cancelSrc_ = new CancellationTokenSource();
+
             libPolys_ = new List<PolyForm>();
             cmdBuffr_ = new Queue<Poly3Cmd>();
         }
 
         public void ExecuteCmdBuffer(Action<ProgressChangedEventArgs> callback_progress, Action<AsyncCompletedEventArgs> callback_completed)
         {
-            bkWorker_ = new BackgroundWorker();
-            bkWorker_.WorkerSupportsCancellation = true;
-            bkWorker_.WorkerReportsProgress = true;
+            bkWorker_ = new BackgroundWorker()
+            {
+                WorkerSupportsCancellation = true,
+                WorkerReportsProgress = true
+            };            
 
             if (callback_progress != null)
                 bkWorker_.ProgressChanged += (sender, e) => callback_progress.Invoke(e);
             if (callback_completed != null)
                 bkWorker_.RunWorkerCompleted += (sender, e) => callback_completed.Invoke(e);
 
-            bkWorker_.DoWork += BkWorkerDoWork;
+            bkWorker_.DoWork += WorkerDoWork;
             bkWorker_.RunWorkerCompleted += BkRunCompleted;
 
             bkWorker_.RunWorkerAsync();
         }
+
+        private readonly IProgress<string> updates_;
+        private readonly CancellationTokenSource cancelSrc_;
+
+        public Task RunNester()
+        {
+            return Task.CompletedTask;
+        }
+
 
         public bool CancelExecute()
         {
@@ -144,7 +159,7 @@ namespace PolyNester
             bkWorker_.Dispose();
         }
 
-        private void BkWorkerDoWork(object sender, DoWorkEventArgs e)
+        private void WorkerDoWork(object sender, DoWorkEventArgs e)
         {
             while (cmdBuffr_.Count > 0)
             {
@@ -157,6 +172,12 @@ namespace PolyNester
                     break;
                 }
             }
+        }
+
+        private Task WorkerDoWorkAsync(object sender, DoWorkEventArgs e)
+        {
+            if(cmdBuffr_.Count == 0) return Task.CompletedTask;
+            return Task.Run(() => WorkerDoWork(sender, e));
         }
 
         public void ClearCommandBuffer() => cmdBuffr_.Clear();
