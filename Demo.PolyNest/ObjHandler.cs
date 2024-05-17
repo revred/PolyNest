@@ -7,7 +7,7 @@ using System.Windows;
 namespace PolyNesterDemo
 {
 
-    public class UVObjData
+    public class UVObjInfo
     {
         public Vector[] uvs;
         public int[] tris;
@@ -17,9 +17,9 @@ namespace PolyNesterDemo
         public string file_content;         // the original file contents
         public HashSet<int> replace_lines;  // lines of the file which will be replaced on export
 
-        public UVObjData Clone()
+        public UVObjInfo Clone()
         {
-            UVObjData clone = new UVObjData();
+            UVObjInfo clone = new UVObjInfo();
             clone.uvs = new Vector[uvs.Length];
             clone.tris = new int[tris.Length];
             clone.replace_lines = new HashSet<int>(replace_lines);
@@ -40,9 +40,9 @@ namespace PolyNesterDemo
 
     static class ObjHandler
     {
-        public static UVObjData GetData(string path)
+        public static UVObjInfo GetData(string path)
         {
-            UVObjData data = new UVObjData();
+            UVObjInfo data = new UVObjInfo();
             data.target_file = path;
 
             List<int[]> face_list = new List<int[]>();
@@ -127,7 +127,7 @@ namespace PolyNesterDemo
             return data;
         }
 
-        public static void SetData(UVObjData data)
+        public static void SetData(UVObjInfo data)
         {
             int line_counter = 0;
             StringBuilder new_text = new StringBuilder();

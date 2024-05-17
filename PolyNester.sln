@@ -1,11 +1,11 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
-# Visual Studio 15
-VisualStudioVersion = 15.0.28307.271
+# Visual Studio Version 17
+VisualStudioVersion = 17.9.34902.65
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PolyNester", "PolyNester\PolyNester.csproj", "{120D3BF0-AB9C-49E5-8033-36B1E0E813DA}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "PolyNester", "PolyNester\PolyNester.csproj", "{120D3BF0-AB9C-49E5-8033-36B1E0E813DA}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PolyNesterDemo", "PolyNesterDemo\PolyNesterDemo.csproj", "{EFBE23A5-F0EC-41A0-ADF8-6A36C359A92B}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Demo.PolyNest", "Demo.PolyNest\Demo.PolyNest.csproj", "{4E55AE43-510B-480C-822F-6A9DD114C824}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -17,10 +17,10 @@ Global
 		{120D3BF0-AB9C-49E5-8033-36B1E0E813DA}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{120D3BF0-AB9C-49E5-8033-36B1E0E813DA}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{120D3BF0-AB9C-49E5-8033-36B1E0E813DA}.Release|Any CPU.Build.0 = Release|Any CPU
-		{EFBE23A5-F0EC-41A0-ADF8-6A36C359A92B}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{EFBE23A5-F0EC-41A0-ADF8-6A36C359A92B}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{EFBE23A5-F0EC-41A0-ADF8-6A36C359A92B}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{EFBE23A5-F0EC-41A0-ADF8-6A36C359A92B}.Release|Any CPU.Build.0 = Release|Any CPU
+		{4E55AE43-510B-480C-822F-6A9DD114C824}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{4E55AE43-510B-480C-822F-6A9DD114C824}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{4E55AE43-510B-480C-822F-6A9DD114C824}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{4E55AE43-510B-480C-822F-6A9DD114C824}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
