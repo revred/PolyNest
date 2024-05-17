@@ -46,7 +46,7 @@ public partial class MainWindow : Window
         return info;
     }
 
-    private void Button_play_Click(object sender, RoutedEventArgs e)
+    private void ClickPlayBtn(object sender, RoutedEventArgs e)
     {
         // if the nester is working cancel the work
         if (nester_ != null && nester_.IsBusy())
@@ -87,9 +87,12 @@ public partial class MainWindow : Window
         // change the button text and execute work
         button_play.Content = STOP;
 
-        nester_.ExecuteCmdBuffer(NesterProgress, NesterComplete);
+        // nester_.ExecuteCmdBuffer(NesterProgress, NesterComplete);
+        nester_.RunNesterHybrid().GetAwaiter().GetResult();
+        NesterComplete(done);
     }
 
+    AsyncCompletedEventArgs done = new AsyncCompletedEventArgs(null, false, null);
     void NesterProgress(ProgressChangedEventArgs e)
     {
         Debug.WriteLine(e.ProgressPercentage);

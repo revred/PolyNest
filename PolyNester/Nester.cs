@@ -99,7 +99,7 @@ public class Nester
     const long unit_scale = 10000000;
     List<PolyForm> libPolys_;   // list of saved polygons for reference by handle, stores raw poly positions and transforms
     Queue<Poly3Cmd> cmdBuffr_; // buffers list of commands which will append transforms to elements of poly_lib on execute
-    BackgroundWorker bkWorker_; // used to execute command buffer in background
+    BackgroundWorker bkWorker_ = null; // used to execute command buffer in background
 
     public int PolySpace => libPolys_.Count;
 
@@ -112,6 +112,7 @@ public class Nester
         cmdBuffr_ = new Queue<Poly3Cmd>();
     }
 
+    // Old Way of doing asyncronous programming
     public void ExecuteCmdBuffer(Action<ProgressChangedEventArgs> callback_progress, Action<AsyncCompletedEventArgs> callback_completed)
     {
         bkWorker_ = new BackgroundWorker()
@@ -134,8 +135,52 @@ public class Nester
     private readonly IProgress<string> updates_;
     private readonly CancellationTokenSource cancelSrc_;
 
-    public Task RunNester()
+    public async Task RunNester()
     {
+        try
+        {
+            await DoWorkAsync(cancelSrc_.Token, null);
+            Console.WriteLine("Operation completed successfully.");
+        }
+        catch (OperationCanceledException)
+        {
+            Console.WriteLine("Operation was cancelled.");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error: {ex.Message}");
+        }
+    }
+
+    public Task RunNesterHybrid()
+    {
+        try
+        {
+            bkWorker_ = new BackgroundWorker()
+            {
+                WorkerSupportsCancellation = true,
+                WorkerReportsProgress = true
+            };
+            bkWorker_.DoWork += WorkerDoWork;
+            bkWorker_.RunWorkerCompleted += BkRunCompleted;
+
+            bkWorker_.RunWorkerAsync();
+
+            Console.WriteLine("Operation completed successfully.");
+            
+        }
+        catch (OperationCanceledException)
+        {
+            Console.WriteLine("Operation was cancelled.");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error: {ex.Message}");
+        }
+        finally
+        {
+            bkWorker_.Dispose();            
+        }
         return Task.CompletedTask;
     }
 
@@ -166,19 +211,20 @@ public class Nester
 
         while (cmdBuffr_.Count > 0)
         {
-            if (ct is not null) ct?.ThrowIfCancellationRequested();                
+            if (ct is not null) ct?.ThrowIfCancellationRequested();
             Poly3Cmd cmd = cmdBuffr_.Dequeue();
             cmd.Call(cmd.One);
-
+            if (bkWorker_ is null) continue;
             if (bkWorker_.CancellationPending)
             {
                 e.Cancel = true;
+                if (ct is not null) ct?.ThrowIfCancellationRequested();
                 break;
             }
         }
     }
 
-    private Task WorkerDoWorkAsync(object sender, DoWorkEventArgs e)
+    private Task DoWorkAsync(object sender, DoWorkEventArgs e)
     {
         if(cmdBuffr_.Count == 0) return Task.CompletedTask;
         return Task.Run(() => WorkerDoWork(sender, e));
@@ -380,13 +426,17 @@ public class Nester
             if (start >= end) break;
 
             // Very Complext Statement
-            Parallel.For(start, end, i => nfps[i / n, i % n] = i / n == i % n ? -1 : NestKernel(ordered_handles[i % n], ordered_handles[i / n], max_bound_area, base_cnt + i - (i % n > i / n ? 1 : 0) - i / n, max_quality));
+            Parallel.For(start, end, i => nfps[i / n, i % n] = i / n == i % n ? -1 : 
+            NestKernel(ordered_handles[i % n], ordered_handles[i / n], max_bound_area, base_cnt + i - (i % n > i / n ? 1 : 0) - i / n, max_quality));
 
             double progress = Math.Min(((double)(k + 1)) / (update_breaks + 1) * 50.0, 50.0);
-            bkWorker_.ReportProgress((int)progress);
 
-            if (bkWorker_.CancellationPending)
-                break;
+            if(bkWorker_ is not null)
+            {
+                bkWorker_.ReportProgress((int)progress);
+                if (bkWorker_.CancellationPending) break;
+            }
+            
         }
 
         int place_chunk_sz = Math.Max(n / update_breaks, 1);
@@ -394,8 +444,9 @@ public class Nester
         bool[] placed = new bool[n];
         for (int i = 0; i < n; i++)
         {
-            if (i % 10 == 0 && bkWorker_.CancellationPending)
-                break;
+            bool bBreak = i % 10 == 0;
+            if (bkWorker_ is not null && bBreak)
+            if (bkWorker_.CancellationPending) break;
 
             Clipper c = new Clipper();
             c.AddPath(libPolys_[canvas_regions[i]].npoly[0], PolyType.ptSubject, true);
@@ -437,7 +488,7 @@ public class Nester
             if (i % place_chunk_sz == 0)
             {
                 double progress = Math.Min(60.0 + ((double)(i / place_chunk_sz)) / (update_breaks + 1) * 40.0, 100.0);
-                bkWorker_.ReportProgress((int)progress);
+                if (bkWorker_ is not null) bkWorker_.ReportProgress((int)progress);
             }
         }
 
