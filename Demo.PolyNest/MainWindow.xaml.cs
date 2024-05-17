@@ -4,7 +4,7 @@ using System.ComponentModel;
 using System.Diagnostics;
 using System.Windows;
 
-namespace PolyNesterDemo
+namespace DemoPolyNest
 {
     /// <summary>
     /// Interaction logic for MainWindow.xaml
