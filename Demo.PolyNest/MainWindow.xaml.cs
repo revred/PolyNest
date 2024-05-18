@@ -29,17 +29,21 @@ public partial class MainWindow : Window
         OpenFileDialog open_file_dialog = new OpenFileDialog();
         open_file_dialog.Filter = "Object files (*.obj; *.OBJ)|*.obj;*.OBJ";
         if (open_file_dialog.ShowDialog() == true)
-            file_path = open_file_dialog.FileName;
+            file_path = open_file_dialog.FileName;       
 
+        return BuildInfo(file_path);
+    }
+
+    UVObjInfo? BuildInfo(string filePath)
+    {
         // if no path then return
-        if (string.IsNullOrEmpty(file_path))
-            return null;
+        if (string.IsNullOrEmpty(filePath)) return null;
 
         // try to get the model data
         UVObjInfo? info = null;
         try
         {
-            info = IObjHandler.GetData(file_path);
+            info = IObjHandler.BuildInfo(filePath);
         }
         catch { info = null; }
         return info;

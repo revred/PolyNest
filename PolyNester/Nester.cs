@@ -96,7 +96,7 @@ namespace PolyNester
         }
 
         const long unit_scale = 10000000;
-        List<PolyForm> libPolys_;   // list of saved polygons for reference by handle, stores raw poly positions and transforms
+        List<PolyForm> libPolys_;  // list of saved polygons for reference by handle, stores raw poly positions and transforms
         Queue<Poly3Cmd> cmdBuffr_; // buffers list of commands which will append transforms to elements of poly_lib on execute
         BackgroundWorker bkWorker_; // used to execute command buffer in background
 
@@ -298,7 +298,9 @@ namespace PolyNester
         /// <param name="pattern_handle"></param>
         /// <param name="lib_set_at"></param>
         /// <returns></returns>
-        private int NestKernel(int subj_handle, int pattern_handle, double max_area_bounds, int lib_set_at, NestQuality max_quality = NestQuality.Full)
+        private int NestKernel(int subj_handle, int pattern_handle, 
+                                           double max_area_bounds, int lib_set_at, 
+                                           NestQuality max_quality = NestQuality.Full)
         {
             NestQuality quality = GetNestQuality(subj_handle, pattern_handle, max_area_bounds);
             quality = (NestQuality)Math.Min((int)quality, (int)max_quality);
@@ -610,13 +612,11 @@ namespace PolyNester
             Ngons A = libPolys_[subj_handle].TransformPoly();
             Ngons B = libPolys_[pattern_handle].TransformPoly();
 
-            Ngons C = GeomUtility.MinkowskiSum(B[0], A, quality, flip_pattern);
+            Ngons C = SigmaMinima.MakeOne(B[0], A, quality, flip_pattern);
             PolyForm pref = new PolyForm() { npoly = C, tform = Mat3x3.Eye() };
 
-            if (set_at < 0)
-                libPolys_.Add(pref);
-            else
-                libPolys_[set_at] = pref;
+            if (set_at < 0) libPolys_.Add(pref);
+            else libPolys_[set_at] = pref;
 
             return set_at < 0 ? libPolys_.Count - 1 : set_at;
         }

@@ -8,7 +8,7 @@ internal class ObjHandler : IObjHandler
     public ObjHandler(string filePath)
     {
         obj_ = new UVObjInfo(filePath);
-        reader_ = new StringReader(filePath);
+        reader_ = new StringReader(obj_.Info.file_content);
     }
 
     public string? ReadLine() => reader_.ReadLine();
