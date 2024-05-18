@@ -39,7 +39,7 @@ public partial class MainWindow : Window
         UVObjInfo? info = null;
         try
         {
-            info = ObjHandler.GetData(file_path);
+            info = IObjHandler.GetData(file_path);
         }
         catch { info = null; }
         return info;
