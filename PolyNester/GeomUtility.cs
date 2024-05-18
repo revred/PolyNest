@@ -1,8 +1,7 @@
-﻿using System;
+﻿using ClipperLib;
+using System;
 using System.Collections;
 using System.Collections.Generic;
-using System.Threading.Tasks;
-using ClipperLib;
 
 namespace PolyNester;
 
@@ -39,15 +38,11 @@ public static class GeomUtility
         }
     }
 
-        public static long Width(this IntRect rect) => Math.Abs(rect.left - rect.right);
-
-        public static long Height(this IntRect rect) => Math.Abs(rect.top - rect.bottom);
-
-        public static long Area(this IntRect rect) => rect.Width() * rect.Height();
-
-        public static double Aspect(this IntRect rect) => (rect.Width()) / (double) rect.Height();
-
-        public static Ngon Clone(this Ngon poly) => new Ngon(poly);
+    public static long Width(this IntRect rect) => Math.Abs(rect.left - rect.right);
+    public static long Height(this IntRect rect) => Math.Abs(rect.top - rect.bottom);
+    public static long Area(this IntRect rect) => rect.Width() * rect.Height();
+    public static double Aspect(this IntRect rect) => (rect.Width()) / (double) rect.Height();
+    public static Ngon Clone(this Ngon poly) => new Ngon(poly);
 
     public static Ngon Clone(this Ngon poly, long shift_x, long shift_y, bool flip_first = false)
     {
@@ -110,7 +105,7 @@ public static class GeomUtility
     }
 
     public static Rect64 GetBounds(IEnumerable<Vector64> points)
-    {
+    {      
         double width_min = double.MaxValue;
         double width_max = double.MinValue;
         double height_min = double.MaxValue;
