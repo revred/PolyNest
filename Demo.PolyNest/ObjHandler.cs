@@ -3,7 +3,7 @@ using System.Windows;
 
 namespace DemoPolyNest;
 
-class ObjHandler : IObjHandler
+internal class ObjHandler : IObjHandler
 {
     public ObjHandler(string filePath)
     {

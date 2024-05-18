@@ -13,6 +13,8 @@ public interface IObjHandler : IDisposable
 
     UVObjInfo Extract();
 
+    bool SurpLine(string line);
+
     public static UVObjInfo GetData(string path)
     {
         using (var s2o = IObjHandler.CreateNew(path))
