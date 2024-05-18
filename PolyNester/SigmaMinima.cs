@@ -155,15 +155,16 @@ public class SigmaMinima
     Ngons MSumFull()
     {
         var core = new MinkowskiCore(clipps_);
-        var mks = core.SumBoundary(pattern_, subject_, flip_);
-        
+        var mks = core.SumBoundary(pattern_, subject_, flip_);        
         var full = PatternFlipper();
-        Clipper clipps = new Clipper();
-        clipps.AddPaths(full, PolyType.ptSubject, true);
-        clipps.AddPaths(mks, PolyType.ptSubject, true);
+
+        clipps_.AddPaths(full, PolyType.ptSubject, true);
+        clipps_.AddPaths(mks, PolyType.ptSubject, true);
+
         Ngons res = new Ngons();
-        clipps.Execute(ClipType.ctUnion, res, PolyFillType.pftNonZero);       
-        
+        clipps_.Execute(ClipType.ctUnion, res, PolyFillType.pftNonZero);
+        clipps_.Clear();
+
         return res;
     }
 
@@ -171,14 +172,15 @@ public class SigmaMinima
     {
         Ngons full = new Ngons();
         long scale = flip_ ? -1 : 1;
-        Clipper clipps = new Clipper();
-
+        
+        clipps_.Clear();
         for (int i = 0; i < pattern_.Count; i++)
         {
             var scaled = subject_.Clone(scale * pattern_[i].X, scale * pattern_[i].Y);
-            clipps.AddPaths(scaled, PolyType.ptSubject, true);
+            clipps_.AddPaths(scaled, PolyType.ptSubject, true);
         }
-        clipps.Execute(ClipType.ctUnion, full, PolyFillType.pftNonZero);
+        clipps_.Execute(ClipType.ctUnion, full, PolyFillType.pftNonZero);
+        clipps_.Clear();
         return full;
     }
 }

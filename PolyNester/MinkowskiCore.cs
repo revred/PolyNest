@@ -18,22 +18,19 @@ public class MinkowskiCore
     }
     public Ngons SumBoundary(Ngon pattern, Ngons path, bool flip_pattern)
     {
-        Ngons full = new Ngons();
-        Ngons res = new Ngons();
+        Ngons full = new Ngons();       
 
         for (int i = 0; i < path.Count; i++)
-        {
-            clipps_.Clear();
-
+        {   
+            Ngons res = new Ngons();
             Ngons seg = SumBoundary(pattern, path[i], flip_pattern);
+
             clipps_.AddPaths(full, PolyType.ptSubject, true);
             clipps_.AddPaths(seg, PolyType.ptSubject, true);
             clipps_.Execute(ClipType.ctUnion, res, PolyFillType.pftNonZero);
             full = res;
-            res.Clear();           
+            clipps_.Clear();            
         }
-        clipps_.Clear();
-
         return full;
     }
 
