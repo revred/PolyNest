@@ -162,6 +162,7 @@ public static class GeomUtility
             if (hull[last_vert].Y > hull[i].Y)
                 last_vert = i;
 
+        double rigidRoot = Math.Sqrt(rigidness);
         while (last_hull.Count != hull.Count)
         {
             last_hull = hull;
@@ -196,7 +197,7 @@ public static class GeomUtility
 
             double hull_area = Clipper.Area(hull);
 
-            if (subj_area / hull_area < Math.Sqrt(rigidness))
+            if (subj_area / hull_area < rigidRoot)
             {
                 hull = Clipper.SimplifyPolygon(hull, PolyFillType.pftNonZero)[0];
                 break;

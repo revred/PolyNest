@@ -1,6 +1,5 @@
-﻿using System.Collections.Generic;
-using System.Threading.Tasks;
-using ClipperLib;
+﻿using ClipperLib;
+using System.Collections.Generic;
 
 namespace PolyNester;
 
@@ -18,25 +17,26 @@ public class MinkowskiCore
     }
     public Ngons SumBoundary(Ngon pattern, Ngons path, bool flip_pattern)
     {
-        Ngons full = new Ngons();       
-
+        Ngons full = null;
         for (int i = 0; i < path.Count; i++)
-        {   
-            Ngons res = new Ngons();
+        {            
             Ngons seg = SumBoundary(pattern, path[i], flip_pattern);
-
-            clipps_.AddPaths(full, PolyType.ptSubject, true);
+            if (full is null)
+            {
+                full = seg;
+                continue;
+            }
             clipps_.AddPaths(seg, PolyType.ptSubject, true);
-            clipps_.Execute(ClipType.ctUnion, res, PolyFillType.pftNonZero);
-            full = res;
-            clipps_.Clear();            
+            clipps_.AddPaths(full, PolyType.ptSubject, true);
+            clipps_.Execute(ClipType.ctUnion, full, PolyFillType.pftNonZero);
+            clipps_.Clear();
         }
         return full;
     }
 
     public Ngons SumBoundary(Ngon pattern, Ngon path, bool flip_pattern)
     {   
-        Ngons full = new Ngons();
+        Ngons full = null;
         for (int i = 0; i < path.Count; i++)
         {
             clipps_.Clear();
@@ -44,12 +44,14 @@ public class MinkowskiCore
             IntPoint p2 = path[(i + 1) % path.Count];
 
             Ngons seg = SumSegment(pattern, p1, p2, flip_pattern);
+            if (full is null)
+            {
+                full = seg;
+                continue;
+            }
             clipps_.AddPaths(full, PolyType.ptSubject, true);
             clipps_.AddPaths(seg, PolyType.ptSubject, true);
-
-            Ngons res = new Ngons();
-            clipps_.Execute(ClipType.ctUnion, res, PolyFillType.pftNonZero);
-            full = res;
+            clipps_.Execute(ClipType.ctUnion, full, PolyFillType.pftNonZero);
         }
 
         clipps_.Clear();
@@ -62,8 +64,6 @@ public class MinkowskiCore
         if (p1 == p2) return new Ngons() { p1_c };
         Ngon p2_c = pattern.Clone(p2.X, p2.Y, flip_pattern);
 
-        Ngons full = new Ngons();
-
         clipps_.Clear();
 
         clipps_.AddPath(p1_c, PolyType.ptSubject, true);
@@ -72,9 +72,8 @@ public class MinkowskiCore
         var ng12 = new Ngon() { p1, p2 };
         var aPath = Clipper.MinkowskiSum(pattern.Clone(0, 0, flip_pattern), ng12, false);
         clipps_.AddPaths(aPath, PolyType.ptSubject, true);
-        clipps_.Execute(ClipType.ctUnion, full, PolyFillType.pftNonZero);
-
+        clipps_.Execute(ClipType.ctUnion, aPath, PolyFillType.pftNonZero);
         clipps_.Clear();
-        return full;
+        return aPath;
     }
 }

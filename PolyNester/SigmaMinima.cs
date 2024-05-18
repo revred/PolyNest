@@ -159,13 +159,10 @@ public class SigmaMinima
         var full = PatternFlipper();
 
         clipps_.AddPaths(full, PolyType.ptSubject, true);
-        clipps_.AddPaths(mks, PolyType.ptSubject, true);
-
-        Ngons res = new Ngons();
-        clipps_.Execute(ClipType.ctUnion, res, PolyFillType.pftNonZero);
+        clipps_.AddPaths(mks, PolyType.ptSubject, true);        
+        clipps_.Execute(ClipType.ctUnion, full, PolyFillType.pftNonZero);
         clipps_.Clear();
-
-        return res;
+        return full;
     }
 
     Ngons PatternFlipper()
