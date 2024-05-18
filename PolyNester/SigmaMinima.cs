@@ -22,9 +22,7 @@ public class SigmaMinima
         pattern_ = pattern;
         subject_ = subject;
         flip_ = flip_pattern;
-
-        if (quality_ == NestQuality.ConcaveFull || quality_ == NestQuality.Full)
-            clipps_ = new Clipper();
+        clipps_ = new Clipper();
     }
 
     public static Ngons MakeOne(Ngon pattern, Ngons subject, NestQuality quality, bool flip_pattern)
