@@ -18,20 +18,21 @@ public class MinkowskiCore
     }
     public Ngons SumBoundary(Ngon pattern, Ngons path, bool flip_pattern)
     {
-
         Ngons full = new Ngons();
         Ngons res = new Ngons();
 
         for (int i = 0; i < path.Count; i++)
         {
-            Ngons seg = SumBoundary(pattern, path[i], flip_pattern);
             clipps_.Clear();
+
+            Ngons seg = SumBoundary(pattern, path[i], flip_pattern);
             clipps_.AddPaths(full, PolyType.ptSubject, true);
             clipps_.AddPaths(seg, PolyType.ptSubject, true);
             clipps_.Execute(ClipType.ctUnion, res, PolyFillType.pftNonZero);
             full = res;
             res.Clear();           
         }
+        clipps_.Clear();
 
         return full;
     }
@@ -39,9 +40,9 @@ public class MinkowskiCore
     public Ngons SumBoundary(Ngon pattern, Ngon path, bool flip_pattern)
     {   
         Ngons full = new Ngons();
-        clipps_.Clear();
         for (int i = 0; i < path.Count; i++)
         {
+            clipps_.Clear();
             IntPoint p1 = path[i];
             IntPoint p2 = path[(i + 1) % path.Count];
 
@@ -52,9 +53,9 @@ public class MinkowskiCore
             Ngons res = new Ngons();
             clipps_.Execute(ClipType.ctUnion, res, PolyFillType.pftNonZero);
             full = res;
-            clipps_.Clear();
         }
 
+        clipps_.Clear();
         return full;
     }
 
@@ -76,6 +77,7 @@ public class MinkowskiCore
         clipps_.AddPaths(aPath, PolyType.ptSubject, true);
         clipps_.Execute(ClipType.ctUnion, full, PolyFillType.pftNonZero);
 
+        clipps_.Clear();
         return full;
     }
 }
