@@ -10,19 +10,21 @@ using Ngons = List<List<IntPoint>>;
 
 public class SigmaMinima
 {
-    private NestQuality quality;
-    private Ngon pattern;
-    private Ngons subject;
-    private bool flip_pattern;
+    private NestQuality quality_;
+    private Ngon pattern_;
+    private Ngons subject_;
+    private bool flip_;
     private Clipper clipps_;
 
     private SigmaMinima(NestQuality quality, Ngon pattern, Ngons subject, bool flip_pattern)
     {
-        this.quality = quality;
-        this.pattern = pattern;
-        this.subject = subject;
-        this.flip_pattern = flip_pattern;
-        clipps_ = new Clipper();
+        quality_ = quality;
+        pattern_ = pattern;
+        subject_ = subject;
+        flip_ = flip_pattern;
+
+        if (quality_ == NestQuality.ConcaveFull || quality_ == NestQuality.Full)
+            clipps_ = new Clipper();
     }
 
     public static Ngons MakeOne(Ngon pattern, Ngons subject, NestQuality quality, bool flip_pattern)
@@ -33,7 +35,7 @@ public class SigmaMinima
 
     internal async Task<Ngons> Extract()
     {        
-        var result = quality switch
+        var result = quality_ switch
         {
             NestQuality.Simple => MSumSimple(),
             NestQuality.Convex => MSumConvex(),
@@ -50,10 +52,10 @@ public class SigmaMinima
 
     private Ngons MSumSimple()
     {
-        IntRect pB = GeomUtility.GetBounds(pattern);
-        IntRect sB = GeomUtility.GetBounds(subject[0]);
+        IntRect pB = GeomUtility.GetBounds(pattern_);
+        IntRect sB = GeomUtility.GetBounds(subject_[0]);
 
-        if (flip_pattern)
+        if (flip_)
         {
             pB = new IntRect(-pB.right, -pB.bottom, -pB.left, -pB.top);
         }
@@ -69,8 +71,8 @@ public class SigmaMinima
 
     private Ngons MSumConvex()
     {
-        Ngon h_p = GeomUtility.ConvexHull(pattern.Clone(0, 0, flip_pattern));
-        Ngon h_s = GeomUtility.ConvexHull(subject[0].Clone());
+        Ngon h_p = GeomUtility.ConvexHull(pattern_.Clone(0, 0, flip_));
+        Ngon h_s = GeomUtility.ConvexHull(subject_[0].Clone());
 
         int n_p = h_p.Count;
         int n_s = h_s.Count;
@@ -138,14 +140,15 @@ public class SigmaMinima
 
     private Ngons MSumConcave(double rigidness = 1.0)
     {
-        Ngon subj = subject[0];
-        Ngon patt = pattern.Clone(0, 0, flip_pattern);
+        Ngon subj = subject_[0];
+        Ngon patt = pattern_.Clone(0, 0, flip_);
 
         if (rigidness < 1.0)
         {
             subj = GeomUtility.ConvexHull(subj, rigidness);
             patt = GeomUtility.ConvexHull(patt, rigidness);
         }
+
         var core = new MinkowskiCore(clipps_);
         Ngons sres = core.SumBoundary(patt, subj, false);
         return sres.Count == 0 ? sres : new Ngons() { sres[0] };
@@ -154,28 +157,30 @@ public class SigmaMinima
     Ngons MSumFull()
     {
         var core = new MinkowskiCore(clipps_);
-        Ngons full = new Ngons();
-
-        long scale = flip_pattern ? -1 : 1;
-        clipps_.Clear();
-        ///======================Clipper Sequential Usage: 01 =================================!
-        for (int i = 0; i < pattern.Count; i++)
-        {
-            var scaled = subject.Clone(scale * pattern[i].X, scale * pattern[i].Y);
-            clipps_.AddPaths(scaled, PolyType.ptSubject, true);
-        }
-        clipps_.Execute(ClipType.ctUnion, full, PolyFillType.pftNonZero);
-        clipps_.Clear();
-        ///======================Clipper Sequential Usage: 02 =================================!
-        var mks = core.SumBoundary(pattern, subject, flip_pattern);
-        clipps_.Clear();
-        ///======================Clipper Sequential Usage: 03 =================================!
-        clipps_.AddPaths(full, PolyType.ptSubject, true);
-        clipps_.AddPaths(mks, PolyType.ptSubject, true);
+        var mks = core.SumBoundary(pattern_, subject_, flip_);
+        
+        var full = PatternFlipper();
+        Clipper clipps = new Clipper();
+        clipps.AddPaths(full, PolyType.ptSubject, true);
+        clipps.AddPaths(mks, PolyType.ptSubject, true);
         Ngons res = new Ngons();
-        clipps_.Execute(ClipType.ctUnion, res, PolyFillType.pftNonZero);
-        ///======================Clipper Sequential Usage: end ================================!
-        clipps_.Clear();
+        clipps.Execute(ClipType.ctUnion, res, PolyFillType.pftNonZero);       
+        
         return res;
+    }
+
+    Ngons PatternFlipper()
+    {
+        Ngons full = new Ngons();
+        long scale = flip_ ? -1 : 1;
+        Clipper clipps = new Clipper();
+
+        for (int i = 0; i < pattern_.Count; i++)
+        {
+            var scaled = subject_.Clone(scale * pattern_[i].X, scale * pattern_[i].Y);
+            clipps.AddPaths(scaled, PolyType.ptSubject, true);
+        }
+        clipps.Execute(ClipType.ctUnion, full, PolyFillType.pftNonZero);
+        return full;
     }
 }

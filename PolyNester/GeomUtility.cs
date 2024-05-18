@@ -17,23 +17,18 @@ public static class GeomUtility
         {
             long det = A.Y * B.X - A.X * B.Y;
 
-            if (det == 0)
-            {
-                long dot = A.X * B.X + A.Y * B.Y;
-                if (dot >= 0)
-                    return 0;
-            }
+                if (det == 0)
+                {
+                    long dot = A.X * B.X + A.Y * B.Y;
+                    if (dot >= 0) return 0;
+                }
 
-            if (A.Y == 0 && A.X > 0)
-                return -1;
-            if (B.Y == 0 && B.X > 0)
-                return 1;
-            if (A.Y > 0 && B.Y < 0)
-                return -1;
-            if (A.Y < 0 && B.Y > 0)
-                return 1;
-            return det > 0 ? 1 : -1;
-        }
+                if (A.Y == 0 && A.X > 0) return -1;
+                if (B.Y == 0 && B.X > 0) return 1;
+                if (A.Y > 0 && B.Y < 0) return -1;
+                if (A.Y < 0 && B.Y > 0) return 1;
+                return det > 0 ? 1 : -1;
+            }
 
         int IComparer.Compare(object a, object b)
         {
@@ -44,30 +39,15 @@ public static class GeomUtility
         }
     }
 
-    public static long Width(this IntRect rect)
-    {
-        return Math.Abs(rect.left - rect.right);
-    }
+        public static long Width(this IntRect rect) => Math.Abs(rect.left - rect.right);
 
-    public static long Height(this IntRect rect)
-    {
-        return Math.Abs(rect.top - rect.bottom);
-    }
+        public static long Height(this IntRect rect) => Math.Abs(rect.top - rect.bottom);
 
-    public static long Area(this IntRect rect)
-    {
-        return rect.Width() * rect.Height();
-    }
+        public static long Area(this IntRect rect) => rect.Width() * rect.Height();
 
-    public static double Aspect(this IntRect rect)
-    {
-        return ((double)rect.Width()) / rect.Height();
-    }
+        public static double Aspect(this IntRect rect) => (rect.Width()) / (double) rect.Height();
 
-    public static Ngon Clone(this Ngon poly)
-    {
-        return new Ngon(poly);
-    }
+        public static Ngon Clone(this Ngon poly) => new Ngon(poly);
 
     public static Ngon Clone(this Ngon poly, long shift_x, long shift_y, bool flip_first = false)
     {
