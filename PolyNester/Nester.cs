@@ -26,32 +26,6 @@ public static class ConverterUtility
 
 public class Nester
 {
-    private class PolyForm
-    {
-        public Ngons npoly;
-        public Mat3x3 tform;
-
-        public IntPoint TransformPolyPoint(int idPoly, int index) => tform * npoly[idPoly][index];
-
-        public Ngons TransformPoly()
-        {
-            Ngons nMain = new Ngons(npoly.Count);
-            for (int i = 0; i < npoly.Count; i++)
-                nMain.Add(TransformOne(i));
-            return nMain;
-        }
-
-        public Ngon TransformOne(int idx)
-        {
-            if (idx >= npoly.Count()) return new Ngon();
-            var rgon = npoly[idx];
-            Ngon ng = new Ngon(rgon.Count);            
-            for (int j = 0; j < rgon.Count; j++)
-                ng.Add(tform * rgon[j]);                
-            return ng;
-        }
-    }
-
     private class Poly3Cmd
     {
         public Action<object> Call;
@@ -211,8 +185,6 @@ public class Nester
             One = PolyMove.MakeOne(handle, translate_x, translate_y) });
     }
 
-
-
     private void CmdTranslate(object one)
     {
         PolyMove pm = (PolyMove)one;
@@ -367,7 +339,11 @@ public class Nester
             if (start >= end) break;
 
             // Very Complext Statement
-            Parallel.For(start, end, i => nfps[i / nHS, i % nHS] = i / nHS == i % nHS ? -1 : NestKernel(ordered_handles[i % nHS], ordered_handles[i / nHS], max_bound_area, base_cnt + i - (i % nHS > i / nHS ? 1 : 0) - i / nHS, max_quality));
+            Parallel.For(start, end, i => nfps[i / nHS, i % nHS] = i / nHS == i % nHS ? -1 : 
+            NestKernel(ordered_handles[i % nHS], 
+                       ordered_handles[i / nHS], 
+                       max_bound_area, 
+                       base_cnt + i - (i % nHS > i / nHS ? 1 : 0) - i / nHS, max_quality));
 
             double progress = Math.Min(((double)(k + 1)) / (update_breaks + 1) * 50.0, 50.0);
             bkWorker_.ReportProgress((int)progress);

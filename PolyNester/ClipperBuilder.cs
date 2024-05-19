@@ -10,7 +10,33 @@ namespace PolyNester;
 using Ngon = List<IntPoint>;
 using Ngons = List<List<IntPoint>>;
 
-public struct ClipperBuilder
+class PolyForm
+{
+    public Ngons npoly;
+    public Mat3x3 tform;
+
+    public IntPoint TransformPolyPoint(int idPoly, int index) => tform * npoly[idPoly][index];
+
+    public Ngons TransformPoly()
+    {
+        Ngons nMain = new Ngons(npoly.Count);
+        for (int i = 0; i < npoly.Count; i++)
+            nMain.Add(TransformOne(i));
+        return nMain;
+    }
+
+    public Ngon TransformOne(int idx)
+    {
+        if (idx >= npoly.Count()) return new Ngon();
+        var rgon = npoly[idx];
+        Ngon ng = new Ngon(rgon.Count);
+        for (int j = 0; j < rgon.Count; j++)
+            ng.Add(tform * rgon[j]);
+        return ng;
+    }
+}
+
+public class ClipperBuilder
 {
     IntPoint[] pts_;
     int[] tris_;
@@ -114,12 +140,12 @@ public struct ClipperBuilder
         Task[] tasks = new Task[clusters.Count()];
         for (int i = 0; i < clusters.Count(); i++)
         {
-            tasks[i] = FillAll(i, clusters[i], all_);
+            tasks[i] = FillOne(i, clusters[i], all_);
         }
         Task.WhenAll(tasks).GetAwaiter().GetResult();        
     }
 
-    async Task FillAll(int index, Ngons inCluster, Ngons[] all)
+    async Task FillOne(int index, Ngons inCluster, Ngons[] all)
     {
         all[index] = await Transform(inCluster);
     }
