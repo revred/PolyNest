@@ -254,8 +254,13 @@ public class Nester
         HashSet<int> unique = Preprocess(ph.harray_);
         HashSet<Vector64> points = new HashSet<Vector64>();
         foreach (int i in unique)
-            points.UnionWith(libPolys_[i].npoly[0].Select(p => libPolys_[i].tform * new Vector64(p.X, p.Y)));
-
+        {
+            var tform = libPolys_[i].tform;
+            var npolio = libPolys_[i].npoly[0];
+            var nlist = npolio.Select(one => tform * new Vector64(one.X, one.Y));
+            points.UnionWith(nlist);
+        }
+        
         Vector64 scale, trans;
         GeomUtility.GetRefitTransform(points, ph.target_, ph.stretch_, out scale, out trans);
 
@@ -332,7 +337,7 @@ public class Nester
 
         CmdMoveOriginToZero(unique);
 
-        int n = unique.Count;
+        int nHS = unique.Count;
 
         Dictionary<int, IntRect> bounds = new Dictionary<int, IntRect>();
         foreach (int handle in unique)
@@ -346,23 +351,23 @@ public class Nester
         int[] canvas_regions = AddCanvasFitPolygon(ordered_handles);
 
         int base_cnt = libPolys_.Count;
-        for (int i = 0; i < n * n - n; i++)
+        for (int i = 0; i < nHS * nHS - nHS; i++)
             libPolys_.Add(new PolyForm());
 
         int update_breaks = 10;
-        int nfp_chunk_sz = n * n / update_breaks * update_breaks == n * n ? n * n / update_breaks : n * n / update_breaks + 1;
+        int nfp_chunk_sz = nHS * nHS / update_breaks * update_breaks == nHS * nHS ? nHS * nHS / update_breaks : nHS * nHS / update_breaks + 1;
 
         // the row corresponds to pattern and col to nfp for this pattern on col subj
-        int[,] nfps = new int[n, n];
+        int[,] nfps = new int[nHS, nHS];
         for (int k = 0; k < update_breaks; k++)
         {
             int start = k * nfp_chunk_sz;
-            int end = Math.Min((k + 1) * nfp_chunk_sz, n * n);
+            int end = Math.Min((k + 1) * nfp_chunk_sz, nHS * nHS);
 
             if (start >= end) break;
 
             // Very Complext Statement
-            Parallel.For(start, end, i => nfps[i / n, i % n] = i / n == i % n ? -1 : NestKernel(ordered_handles[i % n], ordered_handles[i / n], max_bound_area, base_cnt + i - (i % n > i / n ? 1 : 0) - i / n, max_quality));
+            Parallel.For(start, end, i => nfps[i / nHS, i % nHS] = i / nHS == i % nHS ? -1 : NestKernel(ordered_handles[i % nHS], ordered_handles[i / nHS], max_bound_area, base_cnt + i - (i % nHS > i / nHS ? 1 : 0) - i / nHS, max_quality));
 
             double progress = Math.Min(((double)(k + 1)) / (update_breaks + 1) * 50.0, 50.0);
             bkWorker_.ReportProgress((int)progress);
@@ -373,10 +378,10 @@ public class Nester
         Clipper clips = new Clipper();
         Ngons fiton = new Ngons();
 
-        int place_chunk_sz = Math.Max(n / update_breaks, 1);
-        bool[] placed = new bool[n];
+        int place_chunk_sz = Math.Max(nHS / update_breaks, 1);
+        bool[] placed = new bool[nHS];
 
-        for (int i = 0; i < n; i++)
+        for (int i = 0; i < nHS; i++)
         {
             if (i % 10 == 0 && bkWorker_.CancellationPending) break;
 
@@ -419,7 +424,7 @@ public class Nester
             if (!placed[i]) continue;
 
             CmdTranslate(PolyMove.MakeOne(ordered_handles[i], (place.X - o.X), (place.Y - o.Y)));
-            for (int k = i + 1; k < n; k++)
+            for (int k = i + 1; k < nHS; k++)
                 CmdTranslate(PolyMove.MakeOne(nfps[k, i], (place.X - o.X), (place.Y - o.Y)));
 
             if (i % place_chunk_sz == 0)
@@ -439,42 +444,17 @@ public class Nester
             One = handles });
     }
 
-    private void OptimalRotate(int handle)
+    private async Task OptimalRotate(int handle)
     {
         Ngon hull = libPolys_[handle].TransformOne(0);
-        int n = hull.Count;
+        Pose2D op = new Pose2D();
+        await op.BestPose2D(hull);       
 
-        double best_t = 0;
-        int best = 0;
-        long best_area = long.MaxValue;
-        bool flip_best = false;
-
-        for (int i = 0; i < n; i++)
-        {
-            double t = GeomUtility.AlignToEdgeRotation(hull, i);
-
-            Mat3x3 rot = Mat3x3.RotateCounterClockwise(t);
-
-            Ngon clone = hull.Clone(rot);
-
-            IntRect bounds = GeomUtility.GetBounds(clone);
-            long area = bounds.Area();
-            double aspect = bounds.Aspect();
-
-            if (area < best_area)
-            {
-                best_area = area;
-                best = i;
-                best_t = t;
-                flip_best = aspect > 1.0;
-            }
-        }
-
-        double flip = flip_best ? Math.PI * 0.5 : 0;
-        IntPoint around = hull[best];
+        double flip = op.flip_best ? Math.PI * 0.5 : 0;
+        IntPoint around = hull[op.best];
 
         CmdTranslate(PolyMove.MakeOne(handle, -around.X, -around.Y));
-        CmdRotate(RotateCCW.MakeOne(handle, best_t + flip));
+        CmdRotate(RotateCCW.MakeOne(handle, op.best_t + flip));
         CmdTranslate(PolyMove.MakeOne(handle, around.X, around.Y));
     }
 
@@ -482,127 +462,38 @@ public class Nester
     {
         Handles hs = (Handles)one;
         HashSet<int> unique = Preprocess(hs);
+        Task[] tasks = new Task[unique.Count];
+        int t = 0;
+        foreach (int i in unique)
+            tasks[t++] = OptimalRotate(i);
 
-        foreach (int i in unique) OptimalRotate(i);
+        Task.WhenAll(tasks).GetAwaiter().GetResult();
     }
+
 
     /// <summary>
     /// Append a set triangulated polygons to the nester and get handles for each point to the correp. polygon island
     /// </summary>
-    /// <param name="points"></param>
+    /// <param name="pts"></param>
     /// <param name="tris"></param>
     /// <returns></returns>
-    public int[] AddPolygons(IntPoint[] points, int[] tris, double miter_distance = 0.0)
+    public int[] AddPolygons(IntPoint[] pts, int[] tris, double miter_distance = 0.0)
     {
         // from points to clusters of tris
-        int[] poly_map = new int[points.Length];
+        int[] poly_map = new int[pts.Length];
         for (int i = 0; i < poly_map.Length; i++)
             poly_map[i] = -1;
 
-        HashSet<int>[] graph = new HashSet<int>[points.Length];
-        for (int i = 0; i < graph.Length; i++)
-            graph[i] = new HashSet<int>();
-        for (int i = 0; i < tris.Length; i += 3)
-        {
-            int t1 = tris[i];
-            int t2 = tris[i + 1];
-            int t3 = tris[i + 2];
+        ClipperBuilder cb = new ClipperBuilder(pts, tris, miter_distance);
+        cb.BuildClusters().GetAwaiter().GetResult();
 
-            graph[t1].Add(t2);
-            graph[t1].Add(t3);
-            graph[t2].Add(t1);
-            graph[t2].Add(t3);
-            graph[t3].Add(t1);
-            graph[t3].Add(t2);
-        }
+        for (int i = 0; i < cb.Cids.Length; i++)
+            cb.Cids[i] += libPolys_.Count;
 
-        if (graph.Any(p => p.Count == 0))
-            throw new Exception("No singular vertices should exist on mesh");
+        for (int i = 0; i < cb.All.Count(); i++)
+            libPolys_.Add(new PolyForm() { npoly = cb.All[i], tform = Mat3x3.Eye() });
 
-        var clust_ids = new int[points.Length];
-        int clust_cnt = ClusterCount(points, graph, clust_ids);
-        Ngons[] clusters = new Ngons[clust_cnt];
-        for (int i = 0; i < tris.Length; i += 3)
-        {
-            int clust = clust_ids[tris[i]];
-            if (clusters[clust] == null)
-                clusters[clust] = new Ngons();
-
-            IntPoint p1 = points[tris[i]];
-            IntPoint p2 = points[tris[i + 1]];
-            IntPoint p3 = points[tris[i + 2]];
-
-            clusters[clust].Add(new Ngon() { p1, p2, p3 });
-        }
-
-        List<Ngons> all = new List<Ngons>();
-        Clipper clipLoop = new Clipper();
-        Ngons full = new Ngons();
-        Ngons fill_miter = new Ngons();
-
-        for (int i = 0; i < clust_cnt; i++)
-        {
-            if (i != 0)
-            {
-                clipLoop.Clear();
-                full.Clear();
-                fill_miter.Clear();
-            }
-
-            Ngons cl = clusters[i];
-            foreach (Ngon n in cl) clipLoop.AddPath(n, PolyType.ptSubject, true);
-
-
-            clipLoop.Execute(ClipType.ctUnion, full, PolyFillType.pftNonZero);
-            Ngons fill = Clipper.SimplifyPolygons(full, PolyFillType.pftNonZero);
-
-            if (miter_distance > 0.00001)
-            {
-                ClipperOffset co = new ClipperOffset();
-                co.AddPaths(fill, JoinType.jtMiter, EndType.etClosedPolygon);
-                co.Execute(ref fill_miter, miter_distance);
-                fill_miter = Clipper.SimplifyPolygons(fill_miter, PolyFillType.pftNonZero);
-                all.Add(fill_miter);
-            }
-            else all.Add(fill);
-        }
-
-        for (int i = 0; i < clust_ids.Length; i++)
-            clust_ids[i] += libPolys_.Count;
-
-        for (int i = 0; i < all.Count; i++)
-            libPolys_.Add(new PolyForm() { npoly = all[i], tform = Mat3x3.Eye() });
-
-        return clust_ids;
-    }
-
-    private static int ClusterCount(IntPoint[] points, HashSet<int>[] graph, int[] clust_ids)
-    {       
-        HashSet<int> unmarked = new HashSet<int>(Enumerable.Range(0, points.Length));
-        int clust_cnt = 0;
-        while (unmarked.Count > 0)
-        {
-            Queue<int> open = new Queue<int>();
-            int first = unmarked.First();
-            unmarked.Remove(first);
-            open.Enqueue(first);
-            while (open.Count > 0)
-            {
-                int c = open.Dequeue();
-                clust_ids[c] = clust_cnt;
-                foreach (int n in graph[c])
-                {
-                    if (unmarked.Contains(n))
-                    {
-                        unmarked.Remove(n);
-                        open.Enqueue(n);
-                    }
-                }
-            }
-
-            clust_cnt++;
-        }
-        return clust_cnt;
+        return cb.Cids;
     }
 
     /// <summary>
@@ -617,8 +508,6 @@ public class Nester
         IntPoint[] new_pts = new IntPoint[points.Length];
         for (int i = 0; i < points.Length; i++)
             new_pts[i] = new IntPoint(points[i].X * unit_scale, points[i].Y * unit_scale);
-
-        int start_index = libPolys_.Count;
 
         int[] map = AddPolygons(new_pts, tris, miter_distance * unit_scale);
 

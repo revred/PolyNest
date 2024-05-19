@@ -9,7 +9,7 @@ using Ngon = List<IntPoint>;
 using Ngons = List<List<IntPoint>>;
 
 public static class GeomUtility
-{
+{    
     private class PolarComparer : IComparer
     {
         public static int CompareIntPoint(IntPoint A, IntPoint B)
