@@ -5,9 +5,14 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:DemoPolyNest"
         mc:Ignorable="d"
-        Title="Poly Nester" Height="730" Width="708" ResizeMode="NoResize">
+        Title="Poly Nester" Height="730" Width="708" ResizeMode="CanResizeWithGrip"
+        SizeChanged="Window_SizeChanged">
     <Grid>
-        <Canvas x:Name="canvas_main" HorizontalAlignment="Left" Height="650" Margin="10,10,0,0" VerticalAlignment="Top" Width="672" Background="FloralWhite"/>
-        <Button x:Name="button_play" Content="Nest" HorizontalAlignment="Left" Margin="10,665,0,0" VerticalAlignment="Top" Width="672" Click="Button_play_Click"/>
+        <Viewbox x:Name="viewbox_main" Stretch="Uniform">
+            <Grid Width="672" Height="650">
+                <Canvas x:Name="canvas_main" Background="FloralWhite"/>
+                <Button x:Name="button_play" Content="Nest" VerticalAlignment="Bottom" Height="30" Click="OnPlayClick"/>
+            </Grid>
+        </Viewbox>
     </Grid>
 </Window>

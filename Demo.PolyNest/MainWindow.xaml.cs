@@ -22,6 +22,31 @@ public partial class MainWindow : Window
         InitializeComponent();
     }
 
+    private void AdjustCanvasSize()
+    {
+        double aspectRatio = 672.0 / 650.0;
+        double newWidth = this.ActualWidth - 40; // Adjusting for window borders and margins
+        double newHeight = newWidth / aspectRatio;
+
+        if (newHeight > this.ActualHeight - 80) // Adjusting for window borders and margins
+        {
+            newHeight = this.ActualHeight - 80;
+            newWidth = newHeight * aspectRatio;
+        }
+
+        viewbox_main.Width = newWidth;
+        viewbox_main.Height = newHeight;
+    }
+
+    private void Window_SizeChanged(object sender, SizeChangedEventArgs e)
+    {
+        // Handle any additional resizing logic here
+        // For example, you can adjust the canvas size or redraw elements based on the new window size
+        AdjustCanvasSize();
+
+        Render();
+    }
+
     private UVObjInfo? FetchUVobjInfo()
     {
         string file_path = string.Empty;
@@ -49,7 +74,7 @@ public partial class MainWindow : Window
         return info;
     }
 
-    private void Button_play_Click(object sender, RoutedEventArgs e)
+    private void OnPlayClick(object sender, RoutedEventArgs e)
     {
         // if the nester is working cancel the work
         if (nester_ != null && nester_.IsBusy())
@@ -63,6 +88,9 @@ public partial class MainWindow : Window
         var obj = FetchUVobjInfo();
         // if info is null return
         if (obj == null) return;
+        
+        // reset the drawing area
+        canvas_main.Reset();
 
         // get the uv verts and triangles
         Vector64[] pts = obj.Info.uvs.Select(p => new Vector64(p.X, p.Y)).ToArray();
@@ -78,19 +106,16 @@ public partial class MainWindow : Window
         // set the nesting commands
         nester_.ClearCommandBuffer();
         nester_.ResetTransformLib();
-
-        canvas_main.Children.Clear();
-
         nester_.OddOptimalRotation(null);
-
         nester_.OddCmdNest(null, NestQuality.Full);
-
         nester_.OddCmdRefit(container, false, null);
-
         // change the button text and execute work
         button_play.Content = STOP;
 
         nester_.ExecuteCmdBuffer(NesterProgress, NesterComplete);
+
+        Debug.Assert(nester_.PolySpace > 0);
+        Render();
     }
 
     void NesterProgress(ProgressChangedEventArgs e)
@@ -107,8 +132,19 @@ public partial class MainWindow : Window
             Debug.WriteLine("cancelled");
             return;
         }
+    }
+
+    void Render()
+    {
+        canvas_main.Reset();
+
+        if (nester_ is null) return;
 
         for (int i = 0; i < nester_.PolySpace; i++)
-            canvas_main.AddNgon(nester_.GetTransformedPoly(i), WPFHelper.RandomColor());
+        {
+            var color = WPFHelper.RandomColor();
+            canvas_main.AddNgon(nester_.GetTransformedPoly(i), color);
+        }
+
     }
 }
